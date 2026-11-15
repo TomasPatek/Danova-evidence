@@ -6,6 +6,11 @@ vyžaduje migraci dat, je vždy nová hlavní verze.
 
 ## [Nevydáno]
 
+### Opraveno
+
+- Platba kartou se spáruje s přijatým dokladem i tehdy, když kód transakce už byl zadaný při
+  jeho úhradě. Doklad zaplacený s kódem až po přijetí notifikace banky se spáruje hned.
+
 ## [1.2.0] - 2026-11-15
 
 ### Přidáno

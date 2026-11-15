@@ -274,6 +274,70 @@ def test_card_payment_attaches_code_to_paid_document(
     assert ReceivedDocs(storage, firma).get(doc_id)["stav"] == "uhrazen"  # type: ignore[index]
 
 
+def test_card_payment_with_code_already_typed_in_matches_automatically(
+    book: BankBook, storage: Storage, firma: FirmaConfig
+) -> None:
+    # The supplier's account and VS have nothing to do with a card payment.
+    doc_id = confirm_doc(
+        storage,
+        firma,
+        castka=D("1374.00"),
+        zpusob_uhrady="karta",
+        datum_uhrady=date(2026, 11, 15),
+        kod_transakce="29569590083",
+    )
+    journal = Journal(storage, firma)
+    assert journal.for_document(doc_id)[0]["cislo_dokladu"] == "29569590083"
+    rec, _ = book.import_movement(
+        movement(
+            smer=Direction.OUT,
+            castka=D("1374.00"),
+            vs="",
+            protiucet="",
+            popis="Platba kartou (nezaúčtováno) v rpishop.cz, Roudne, 000",
+            datum=date(2026, 11, 15),
+            kod_transakce="29569590083",
+        )
+    )
+    (cand,) = book.candidates(rec)
+    assert cand.exact and cand.attach_code
+    matched = book.auto_match(rec)
+    assert matched["stav"] == MatchState.MATCHED and matched["parovani"] == doc_id
+    (row,) = journal.for_document(doc_id)
+    assert matched["denik_id"] == row["id"] and row["cislo_dokladu"] == "29569590083"
+    # Undoing the match leaves the document and its cash book row alone.
+    book.unmatch(rec["id"])
+    (row,) = journal.for_document(doc_id)
+    assert row["cislo_dokladu"] == "29569590083"
+    assert ReceivedDocs(storage, firma).get(doc_id)["stav"] == "uhrazen"  # type: ignore[index]
+
+
+def test_same_code_but_different_amount_is_only_suggested(
+    book: BankBook, storage: Storage, firma: FirmaConfig
+) -> None:
+    doc_id = confirm_doc(
+        storage,
+        firma,
+        castka=D("1300.00"),
+        zpusob_uhrady="karta",
+        datum_uhrady=date(2026, 11, 15),
+        kod_transakce="29569590083",
+    )
+    rec, _ = book.import_movement(
+        movement(
+            smer=Direction.OUT,
+            castka=D("1374.00"),
+            vs="",
+            protiucet="",
+            datum=date(2026, 11, 15),
+            kod_transakce="29569590083",
+        )
+    )
+    (cand,) = book.candidates(rec)
+    assert cand.target == doc_id and not cand.exact
+    assert book.auto_match(rec)["stav"] == MatchState.OPEN
+
+
 def test_book_other_and_transfer(book: BankBook, storage: Storage, firma: FirmaConfig) -> None:
     fee, _ = book.import_movement(
         movement(smer=Direction.OUT, castka=D("2900.00"), vs="", kod_transakce="1")

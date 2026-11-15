@@ -6,6 +6,8 @@ vyžaduje migraci dat, je vždy nová hlavní verze.
 
 ## [Nevydáno]
 
+## [1.2.0] - 2026-11-15
+
 ### Přidáno
 
 - Varování na Přehledu (a na stránce Pošta), když přijde e-mail, ve kterém se nenašla faktura
@@ -133,6 +135,7 @@ faktur s více řádky z Air Bank přibude v další verzi.
   - Dokumentace: instalace, konfigurace, zálohování, aktualizace, formát CSV (generovaný z kódu),
     CONTRIBUTING, SECURITY, šablony issues a pull requestů.
 
-[Nevydáno]: https://github.com/TomasPatek/Danova-evidence/compare/v1.1.0...HEAD
+[Nevydáno]: https://github.com/TomasPatek/Danova-evidence/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/TomasPatek/Danova-evidence/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/TomasPatek/Danova-evidence/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/TomasPatek/Danova-evidence/releases/tag/v1.0.0

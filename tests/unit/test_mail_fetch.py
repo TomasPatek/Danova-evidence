@@ -233,3 +233,54 @@ def test_scheduler_with_backup_only(storage: Storage, tmp_path: Path) -> None:
         )
     finally:
         scheduler.shutdown(wait=False)
+
+
+def apple_forward_mail() -> bytes:
+    """Apple Mail forward: PDF inline, nested in multipart/alternative > multipart/mixed."""
+    from email.mime.application import MIMEApplication
+    from email.mime.image import MIMEImage
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    mixed = MIMEMultipart("mixed")
+    mixed.attach(MIMEText("<p>Přeposlaná zpráva</p>", "html", "utf-8"))
+    icon = MIMEImage(b"\x89PNG\r\n\x1a\n" + b"\0" * 64, "png")
+    icon.add_header("Content-Disposition", "inline", filename="mime-attachment.png")
+    mixed.attach(icon)
+    mixed.attach(MIMEText("<p></p>", "html", "utf-8"))
+    pdf = MIMEApplication((DOKLADY / "faktura-radky.pdf").read_bytes(), "pdf")
+    pdf.add_header("Content-Disposition", "inline", filename="2636398.pdf")
+    mixed.attach(pdf)
+    mixed.attach(MIMEText("<p></p>", "html", "utf-8"))
+    outer = MIMEMultipart("alternative")
+    outer.attach(mixed)
+    outer["From"] = "Tomáš <info@example.cz>"
+    outer["Subject"] = "Fwd: Zálohová faktura"
+    outer["Message-ID"] = "<fwd-1@example.cz>"
+    return outer.as_bytes()
+
+
+def test_inline_nested_pdf_is_found_but_inline_image_is_not(
+    processor: MailProcessor, storage: Storage, firma: FirmaConfig
+) -> None:
+    box = FakeMailbox([apple_forward_mail()])
+    result = processor.run(box)
+    assert (result.documents, result.other) == (1, 0)
+    assert box.moved == {"Zpracováno": ["1"]}
+    (doc,) = ReceivedDocs(storage, firma).queue()
+    assert doc["castka"] == Decimal("1500.00")
+    assert processor.unknown() == []
+
+
+def test_unknown_mail_is_listed_until_dismissed(processor: MailProcessor) -> None:
+    processor.run(FakeMailbox([other_mail("a"), other_mail("b"), doc_mail()]))
+    unknown = processor.unknown()
+    assert [m["predmet"] for m in unknown] == ["b", "a"]  # newest first
+    assert unknown[0]["od"] == "obchod@example.cz" and unknown[0]["klic"]
+    processor.run(FakeMailbox([other_mail("a")]))  # already seen: not listed twice
+    assert len(processor.unknown()) == 2
+    processor.dismiss_unknown(unknown[0]["klic"])
+    assert [m["predmet"] for m in processor.unknown()] == ["a"]
+    processor.dismiss_unknown()
+    assert processor.unknown() == []
+    assert len(processor.state()["videne"]) == 3  # still remembered as seen

@@ -1,0 +1,28 @@
+{# Warning about mails in which no invoice or bank notification was found. Needs unknown_mail, back. #}
+{% if unknown_mail %}
+<div class="alert alert-warning" role="alert">
+  <p><strong>Přišel e-mail, ve kterém se nenašla faktura ani notifikace banky</strong>
+  ({{ unknown_mail | length }}). Zpráva zůstala ve schránce, zkontrolujte ji a doklad případně
+  <a href="/doklady">nahrajte ručně</a>.</p>
+  <ul class="plain">
+    {% for m in unknown_mail %}
+    <li>
+      <form method="post" action="/posta/nezname/skryt" class="inline">
+        <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}">
+        <input type="hidden" name="klic" value="{{ m.klic }}">
+        <input type="hidden" name="zpet" value="{{ back }}">
+        {{ m.predmet or "(bez předmětu)" }} · {{ m.od }}{% if m.datum %} · {{ m.datum }}{% endif %}
+        <button type="submit">Beru na vědomí</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if unknown_mail | length > 1 %}
+  <form method="post" action="/posta/nezname/skryt">
+    <input type="hidden" name="{{ csrf_field }}" value="{{ csrf_token }}">
+    <input type="hidden" name="zpet" value="{{ back }}">
+    <button type="submit">Skrýt vše</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}

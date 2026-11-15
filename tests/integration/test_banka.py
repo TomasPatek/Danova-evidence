@@ -141,3 +141,18 @@ def test_manual_fetch(mail_client: TestClient, mailbox: FakeMailbox) -> None:
     assert "1 (spárováno 0)" in page and "Doklady z příloh</dt><dd>1" in page
     assert set(mailbox.inbox) == {"3"}
     assert "Platby ke spárování: 1" in mail_client.get("/").text
+
+
+def test_unknown_mail_warning_on_dashboard(mail_client: TestClient, mailbox: FakeMailbox) -> None:
+    mailbox.inbox.update({"1": other_mail("Pozvánka na veletrh")})
+    assert "nenašla faktura" not in mail_client.get("/").text
+    mail_client.post("/posta/stahnout", data={"csrf_token": token(mail_client)})
+    page = mail_client.get("/").text
+    assert "nenašla faktura" in page and "Pozvánka na veletrh" in page
+    assert "Pozvánka na veletrh" in mail_client.get("/posta").text
+    resp = mail_client.post(
+        "/posta/nezname/skryt", data={"csrf_token": token(mail_client), "zpet": "/posta"}
+    )
+    assert resp.status_code == 303 and resp.headers["location"] == "/posta"
+    assert "nenašla faktura" not in mail_client.get("/").text
+    assert set(mailbox.inbox) == {"1"}  # the mail itself stays in the inbox

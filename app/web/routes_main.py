@@ -15,6 +15,7 @@ from app.invoices.schemas import InvoiceState
 from app.invoices.service import OPEN_STATES, InvoiceService
 from app.jobs import ZAKAZKY_SCHEMA, JobState
 from app.journal import Journal
+from app.mail.fetch import MailProcessor
 from app.money import sum_money
 from app.received import DocState, ReceivedDocs
 from app.storage import Record
@@ -84,6 +85,9 @@ def _overview(request: Request, firma: FirmaConfig) -> dict[str, Any]:
         "unpaid_docs": [d for d in docs if d["stav"] == DocState.CONFIRMED],
         "journal_report": report,
         "bank_open": len(BankBook(request.app.state.storage, firma).open_movements()),
+        "unknown_mail": MailProcessor(
+            request.app.state.storage, firma, request.app.state.settings
+        ).unknown(),
     }
 
 

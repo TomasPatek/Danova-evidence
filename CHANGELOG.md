@@ -6,6 +6,17 @@ vyžaduje migraci dat, je vždy nová hlavní verze.
 
 ## [Nevydáno]
 
+### Přidáno
+
+- Varování na Přehledu (a na stránce Pošta), když přijde e-mail, ve kterém se nenašla faktura
+  ani notifikace banky. Každé jde potvrdit tlačítkem „Beru na vědomí“, zpráva zůstává ve
+  schránce.
+
+### Opraveno
+
+- PDF faktura v e-mailu se načte i tehdy, když ji poštovní program vloží do textu nebo zanoří
+  do přeposlané zprávy (např. přeposlání z Apple Mailu). Vložené obrázky se nehledají.
+
 ## [1.1.0] - 2026-11-08
 
 ### Přidáno

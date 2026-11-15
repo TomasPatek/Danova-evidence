@@ -171,7 +171,20 @@ def mail_status(request: Request) -> Response:
         configured=imap_configured(settings),
         last=state.get("posledni_beh"),
         seen=len(state.get("videne", [])),
+        unknown_mail=MailProcessor(request.app.state.storage, firma, settings).unknown(),
     )
+
+
+@router.post("/posta/nezname/skryt")
+async def mail_dismiss_unknown(request: Request) -> Response:
+    """Dismiss one unknown-mail warning (field ``klic``) or all of them (no field)."""
+    form = await request.form()
+    key = str(form.get("klic", "")) or None
+    settings = request.app.state.settings
+    firma = FirmaConfig.load(settings.firma_path)
+    MailProcessor(request.app.state.storage, firma, settings).dismiss_unknown(key)
+    back = str(form.get("zpet", ""))
+    return RedirectResponse(back if back in ("/", "/posta") else "/", status_code=303)
 
 
 @router.post("/posta/stahnout")

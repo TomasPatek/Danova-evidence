@@ -115,6 +115,29 @@ def test_unmatched_movement_actions(ready: TestClient) -> None:
     assert "Vklad hotovosti na účet" not in ready.get("/denik").text
 
 
+def test_card_payment_matches_document_paid_later_with_its_code(ready: TestClient) -> None:
+    from tests.integration.test_evidence import confirm_data
+
+    # The bank notification comes first (267 Kč, code 900000000005, 14. 2. 2026).
+    upload_eml(ready, "platba-kartou.eml")
+    assert 'Ke spárování <span class="badge">1</span>' in ready.get("/banka").text
+    # The invoice is entered afterwards, paid by card, with the code from the notification.
+    resp = ready.post(
+        "/doklady/novy",
+        data=confirm_data(
+            ready,
+            castka="267",
+            datum_vystaveni="2026-02-14",
+            datum_uhrady="2026-02-14",
+            uhrazeno="1",
+            zpusob_uhrady="karta",
+            kod_transakce="900000000005",
+        ),
+    )
+    assert resp.status_code == 303, resp.text
+    assert "Vše je spárované" in ready.get("/banka").text
+
+
 def test_upload_rejects_other_mail(ready: TestClient) -> None:
     resp = ready.post(
         "/banka/nahrat",

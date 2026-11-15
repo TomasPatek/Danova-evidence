@@ -53,6 +53,13 @@ def _docs(request: Request) -> ReceivedDocs:
     return ReceivedDocs(request.app.state.storage, firma)
 
 
+def _rematch_bank(request: Request) -> None:
+    """A document just paid (maybe with a transaction code) can match an open bank movement."""
+    book = BankBook(request.app.state.storage, _docs(request).firma)
+    for movement in book.open_movements():
+        book.auto_match(movement)
+
+
 def _jobs(request: Request, current: str = "") -> list[Record]:
     # Costs can arrive after invoicing too (that is what the job warning is for).
     jobs = [
@@ -284,6 +291,7 @@ async def doc_create(request: Request) -> Response:
         except ReceivedError as exc:
             errors = str(exc).splitlines()
         else:
+            _rematch_bank(request)
             return RedirectResponse(f"/doklady/{rec['id']}?ulozeno=1", status_code=303)
     doc = {"id": "", "stav": "", "soubor": "", "nejista_pole": "", **echo}
     return _form_page(request, doc, status_code=400, errors=errors, manual=True)
@@ -433,9 +441,7 @@ async def doc_take_over(request: Request, doc_id: str) -> Response:
         except ReceivedError as exc:
             errors = str(exc).splitlines()
         else:
-            book = BankBook(request.app.state.storage, docs.firma)
-            for movement in book.open_movements():
-                book.auto_match(movement)
+            _rematch_bank(request)
             log.info("Own invoice taken over")
             return RedirectResponse(f"/faktury/{invoice['cislo']}?prevzato=1", status_code=303)
     return _own_page(request, doc, status_code=400, v=v, errors=errors)
@@ -451,6 +457,7 @@ async def doc_confirm(request: Request, doc_id: str) -> Response:
         except ReceivedError as exc:
             errors = str(exc).splitlines()
         else:
+            _rematch_bank(request)
             nxt = _docs(request).queue()
             if doc["stav"] == DocState.REVIEW and nxt:
                 return RedirectResponse(
@@ -479,6 +486,7 @@ async def doc_pay(request: Request, doc_id: str) -> Response:
             errors.append(str(exc))
     if errors:
         return _form_page(request, _get(request, doc_id), status_code=400, errors=errors)
+    _rematch_bank(request)
     return RedirectResponse(f"/doklady/{doc_id}", status_code=303)
 
 

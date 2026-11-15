@@ -25,6 +25,7 @@ from app.storage.csvformat import Column, ColumnKind, TableSchema
 
 CARD_DAYS = 5  # a card payment is booked a few days after the purchase
 ATTACHED_NOTE = "kód transakce doplněn k dokladu zaplacenému kartou"
+CODE_KNOWN_NOTE = "kód transakce už byl u dokladu zaplaceného kartou"
 
 
 class MatchState(StrEnum):
@@ -264,8 +265,31 @@ class BankBook:
                                 note="sedí jen částka",
                             )
                         )
-                elif d["stav"] == DocState.PAID and d["castka"] == amount and d["datum_uhrady"]:
+                elif d["stav"] == DocState.PAID and d["datum_uhrady"]:
                     rows = self.journal.for_document(d["id"])
+                    if m["kod_transakce"] and any(
+                        r["ucet"] == Account.BANK and r["cislo_dokladu"] == m["kod_transakce"]
+                        for r in rows
+                    ):
+                        # The code was typed in when paying: the same transaction for sure.
+                        out.append(
+                            Candidate(
+                                "doklad",
+                                d["id"],
+                                self._doc_label(d),
+                                d["castka"],
+                                exact=d["castka"] == amount,
+                                attach_code=True,
+                                note=(
+                                    "už zaplaceno kartou se stejným kódem transakce"
+                                    if d["castka"] == amount
+                                    else f"stejný kód transakce, ale doklad je na {d['castka']} Kč"
+                                ),
+                            )
+                        )
+                        continue
+                    if d["castka"] != amount:
+                        continue
                     no_code = any(
                         r["ucet"] == Account.BANK and r["cislo_dokladu"] == d["id"] for r in rows
                     )
@@ -348,6 +372,9 @@ class BankBook:
                     ]
                     if not rows:
                         raise BankError("Doklad byl zaplacen jinak než z účtu.")
+                    known = [r for r in rows if r["cislo_dokladu"] == code]
+                    if known:
+                        return self._done(m, target, [known[0]["id"]], note=CODE_KNOWN_NOTE)
                     self.journal.set_number(rows[0]["id"], code)
                     return self._done(m, target, [rows[0]["id"]], note=ATTACHED_NOTE)
                 if doc["castka"] != m["castka"]:
@@ -426,7 +453,9 @@ class BankBook:
             if target and self.invoices.get(target) is not None:
                 self.invoices.mark_unpaid(target)
             elif target and self.docs.get(target) is not None:
-                if m["poznamka"] == ATTACHED_NOTE:
+                if m["poznamka"] == CODE_KNOWN_NOTE:
+                    pass  # the code was typed in when paying: the document stays as it was
+                elif m["poznamka"] == ATTACHED_NOTE:
                     # Only the code was attached: give the row its document number back.
                     for entry_id in filter(None, m["denik_id"].split(",")):
                         self.journal.set_number(entry_id, target)

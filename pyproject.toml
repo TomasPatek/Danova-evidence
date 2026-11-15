@@ -1,6 +1,6 @@
 [project]
 name = "danova-evidence"
-version = "1.2.0"
+version = "1.2.1"
 description = "Self-hosted daňová evidence pro OSVČ, neplátce DPH"
 readme = "README.md"
 license = { text = "MIT" }
